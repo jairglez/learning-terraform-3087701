@@ -41,7 +41,7 @@ module "autoscaling" {
   min_size = 1
   max_size = 2
 
-  vpc_zone_identifier = module.blog_vpc.subnets
+  vpc_zone_identifier = module.blog_vpc.public_subnets
   security_groups     = [module.blog_sg.security_group_id]
 
   traffic_source_attachments = {
@@ -79,7 +79,6 @@ module "blog_alb" {
       protocol         = "HTTP"
       port             = 80
       target_type      = "instance"
-      target_id        = aws_instance.blog.id
     }
   }
 
