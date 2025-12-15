@@ -1,3 +1,13 @@
+locals {
+  vpc_cidr    = "10.0.0.0/16"
+  azs         = slice(data.aws_availability_zones.available.names, 0, 2)
+  tags = {
+    ManagedBy = "Terraform"
+    Terraform = "true"
+    Environment = "dev"
+  }
+}
+
 data "aws_ami" "app_ami" {
   most_recent = true
 
@@ -20,71 +30,65 @@ data "aws_vpc" "default" {
 
 module "blog_vpc" {
   source = "terraform-aws-modules/vpc/aws"
+  version = "5.4.0"
 
-  name = "dev"
-  cidr = "10.0.0.0/16"
-
-  azs             = ["us-west-2a", "us-west-2b", "us-west-2c"]
-  public_subnets  = ["10.0.101.0/24", "10.0.102.0/24", "10.0.103.0/24"]
-
-  tags = {
-    Terraform = "true"
-    Environment = "dev"
-  }
+  name = "alb-vpc"
+  cidr = local.vpc_cidr
+  azs             = local.azs
+  public_subnets  = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k + 4)]
+  enable_nat_gateway = true
+  single_nat_gateway = true
+  tags = local.tags
 }
 
 module "autoscaling" {
   source  = "terraform-aws-modules/autoscaling/aws"
-  version = "9.0.2"
+  version = "7.3.1"
 
-  name     = "blog"
+  name     = "blog-asg"
   min_size = 1
   max_size = 2
 
-  vpc_zone_identifier = module.blog_vpc.public_subnets
-  security_groups     = [module.blog_sg.security_group_id]
-
-  traffic_source_attachments = {
-    ex-alb = {
-      traffic_source_identifier = module.blog_alb.target_groups.ex_instance.arn
-      traffic_source_type       = "elbv2" # default
-    }
-  }
+  vpc_zone_identifier         = module.blog_vpc.public_subnets
+  security_groups             = [module.blog_sg.security_group_id]
+  traffic_source_identifier   = module.alb.target_groups["asg"].arn
 
   image_id      = data.aws_ami.app_ami.id
   instance_type = var.instance_type
+  tags = local.tags
 }
 
 module "blog_alb" {
   source = "terraform-aws-modules/alb/aws"
+  version = "9.4.0"
 
   name            = "blog-alb"
   vpc_id          = module.blog_vpc.vpc_id
   subnets         = module.blog_vpc.public_subnets
   security_groups = [module.blog_sg.security_group_id]
+  enable_deletion_protection = false
   
   listeners = {
     ex-http = {
       port               = 80
       protocol           = "HTTP"
       forward            = {
-        target_group_key = "ex-instance"
+        target_group_key = "asg"
       }
     }
   }
 
   target_groups = {
-    ex-instance = {
+    asg = {
       name_prefix      = "blog-"
       protocol         = "HTTP"
       port             = 80
-      target_type      = "instance"
+      vpc_id           = module.blog_vpc.vpc_id
+      create_attachment = false
     }
   }
 
-  tags = {
-    Environment = "dev"
-  }
+  tags = local.tags
 }
 
 module "blog_sg" {
