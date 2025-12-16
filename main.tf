@@ -28,6 +28,8 @@ data "aws_vpc" "default" {
   default = true
 }
 
+data "aws_availability_zones" "available" {}
+
 module "blog_vpc" {
   source = "terraform-aws-modules/vpc/aws"
   version = "5.4.0"
@@ -41,9 +43,9 @@ module "blog_vpc" {
   tags = local.tags
 }
 
-module "autoscaling" {
+module "blog-asg" {
   source  = "terraform-aws-modules/autoscaling/aws"
-  version = "7.3.1"
+  version = "9.0.2"
 
   name     = "blog-asg"
   min_size = 1
@@ -51,7 +53,13 @@ module "autoscaling" {
 
   vpc_zone_identifier         = module.blog_vpc.public_subnets
   security_groups             = [module.blog_sg.security_group_id]
-  traffic_source_identifier   = module.alb.target_groups["asg"].arn
+  
+  traffic_source_attachments = {
+    blog-alb = {
+      traffic_source_identifier = module.blog_alb.target_groups["ex-asg"].arn
+      traffic_source_type       = "elbv2" # default
+    }
+  }
 
   image_id      = data.aws_ami.app_ami.id
   instance_type = var.instance_type
@@ -79,7 +87,7 @@ module "blog_alb" {
   }
 
   target_groups = {
-    asg = {
+    ex-asg = {
       name_prefix      = "blog-"
       protocol         = "HTTP"
       port             = 80
