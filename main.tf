@@ -89,7 +89,6 @@ module "blog_alb" {
       protocol         = "HTTP"
       port             = 80
       vpc_id           = module.blog_vpc.vpc_id
-      create_attachment = false
     }
   }
 
