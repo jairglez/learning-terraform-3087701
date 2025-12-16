@@ -37,8 +37,7 @@ module "blog_vpc" {
   cidr = local.vpc_cidr
   azs             = local.azs
   public_subnets  = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k + 4)]
-  enable_nat_gateway = true
-  single_nat_gateway = true
+
   tags = local.tags
 }
 
