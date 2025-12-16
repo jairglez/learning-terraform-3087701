@@ -1,6 +1,6 @@
 locals {
   vpc_cidr    = "10.0.0.0/16"
-  azs         = slice(data.aws_availability_zones.available.names, 0, 2)
+  azs         = ["us-west-2a", "us-west-2b", "us-west-2c"]
   tags = {
     ManagedBy = "Terraform"
     Terraform = "true"
