@@ -32,7 +32,6 @@ data "aws_availability_zones" "available" {}
 
 module "blog_vpc" {
   source = "terraform-aws-modules/vpc/aws"
-  version = "6.5.1"
 
   name = "alb-vpc"
   cidr = local.vpc_cidr
@@ -68,7 +67,6 @@ module "blog-asg" {
 
 module "blog_alb" {
   source = "terraform-aws-modules/alb/aws"
-  version = "9.4.0"
 
   name            = "blog-alb"
   vpc_id          = module.blog_vpc.vpc_id
